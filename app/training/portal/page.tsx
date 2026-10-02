@@ -13,22 +13,69 @@ import type { EnrollmentRecord } from "@/lib/student-data";
 
 const subscribeToPayment = () => () => {};
 const getPaymentSnapshot = () => new URLSearchParams(window.location.search).get("payment");
+const getPaymentCourseIdSnapshot = () => new URLSearchParams(window.location.search).get("course_id");
 const getServerPaymentSnapshot = () => null;
 
 export default function PortalPage() {
   const { user: learner, loading: authLoading, error: authError, retry } = usePortalAuth();
   const [dashboardData, setDashboardData] = useState<{ enrollments: EnrollmentRecord[] }>({ enrollments: [] });
   const [loading, setLoading] = useState(true);
+  const [paymentWaitTimedOut, setPaymentWaitTimedOut] = useState(false);
   const payment = useSyncExternalStore(subscribeToPayment, getPaymentSnapshot, getServerPaymentSnapshot);
+  const paymentCourseId = useSyncExternalStore(subscribeToPayment, getPaymentCourseIdSnapshot, getServerPaymentSnapshot);
 
   useEffect(() => {
     if (!learner) return;
-    authenticatedFetch("/api/student/dashboard", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : { enrollments: [] })
-      .then(setDashboardData)
-      .catch(() => setDashboardData({ enrollments: [] }))
-      .finally(() => setLoading(false));
-  }, [learner]);
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    setPaymentWaitTimedOut(false);
+
+    async function refreshDashboard() {
+      const response = await authenticatedFetch("/api/student/dashboard", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not refresh the learner dashboard.");
+      const data = await response.json() as { enrollments: EnrollmentRecord[] };
+      if (!cancelled) setDashboardData(data);
+      return data;
+    }
+
+    void (async () => {
+      let data: { enrollments: EnrollmentRecord[] } | null = null;
+      try {
+        data = await refreshDashboard();
+      } catch {
+        if (!cancelled) setDashboardData({ enrollments: [] });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+
+      if (payment !== "success" || !paymentCourseId || cancelled) return;
+
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        const confirmed = data?.enrollments.some(
+          (record) => String(record.course.id) === paymentCourseId && record.status === "active"
+        );
+        if (confirmed) return;
+
+        await new Promise<void>((resolve) => {
+          pollTimer = setTimeout(resolve, 2000);
+        });
+        if (cancelled) return;
+
+        try {
+          data = await refreshDashboard();
+        } catch {
+          // Keep checking until the webhook update is visible or the wait expires.
+        }
+      }
+
+      if (!cancelled) setPaymentWaitTimedOut(true);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [learner, payment, paymentCourseId]);
 
   if (authError || authLoading || !learner || loading) {
     return <PortalAuthFallback loading={authLoading} error={authError} retry={retry} label="Loading your dashboard…" />;
@@ -47,6 +94,8 @@ export default function PortalPage() {
   const totalLessons = sortedRecords.reduce((sum, r) => sum + r.course.lessons.length, 0);
   const totalCompleted = sortedRecords.reduce((sum, r) => sum + r.completed, 0);
   const overallPercent = totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0;
+  const paymentCourse = sortedRecords.find((record) => String(record.course.id) === paymentCourseId);
+  const paymentConfirmed = paymentCourse?.status === "active";
 
   const online = stripeEnabled();
 
@@ -54,7 +103,19 @@ export default function PortalPage() {
     <DashboardShell user={learner}>
       {payment === "cancelled" && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 font-semibold text-amber-900" role="status">
-          Payment was cancelled. You have not been charged.
+          Payment was cancelled. You have not been charged; the course will remain pending until payment is complete.
+        </div>
+      )}
+      {payment === "success" && (
+        <div
+          className={`mb-6 rounded-2xl border p-4 font-semibold ${paymentConfirmed ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}
+          role="status"
+        >
+          {paymentConfirmed
+            ? `${paymentCourse?.course.title ?? "Your course"} is active. Stripe confirmed your payment.`
+            : paymentWaitTimedOut
+              ? "Payment has not been confirmed yet. Your course remains pending. If you completed payment, contact support before paying again."
+              : "Waiting for Stripe to confirm your payment. This dashboard is checking for the webhook update automatically."}
         </div>
       )}
 
