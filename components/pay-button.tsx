@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CreditCard, Loader2 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/client-auth";
 
-export function PayButton({ courseSlug, price }: { courseSlug: string; price: number }) {
+export function PayButton({ courseId, price }: { courseId: number; price: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -12,7 +12,11 @@ export function PayButton({ courseSlug, price }: { courseSlug: string; price: nu
     setBusy(true);
     setError("");
     try {
-      const response = await authenticatedFetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseSlug }) });
+      const response = await authenticatedFetch("/api/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ courseId }),
+      });
       const data = (await response.json()) as { checkoutUrl?: string; error?: string };
       if (!response.ok || !data.checkoutUrl) throw new Error(data.error || "Payment could not be started.");
       window.location.assign(data.checkoutUrl);

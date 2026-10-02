@@ -34,13 +34,18 @@ export default function PortalPage() {
     return <PortalAuthFallback loading={authLoading} error={authError} retry={retry} label="Loading your dashboard…" />;
   }
 
-  const records = dashboardData.enrollments.filter((record) => record.status !== "cancelled");
+  const records = [...dashboardData.enrollments].filter((record) => record.status !== "cancelled");
+  const sortedRecords = [...records].sort((a, b) => {
+    const aTime = new Date(a.created_at ?? 0).getTime();
+    const bTime = new Date(b.created_at ?? 0).getTime();
+    return bTime - aTime;
+  });
 
-  const activeCourses = records.filter((r) => r.status === "active");
-  const pendingCourses = records.filter((r) => r.status !== "active");
+  const activeCourses = sortedRecords.filter((r) => r.status === "active");
+  const pendingCourses = sortedRecords.filter((r) => r.status !== "active");
 
-  const totalLessons = records.reduce((sum, r) => sum + r.course.lessons.length, 0);
-  const totalCompleted = records.reduce((sum, r) => sum + r.completed, 0);
+  const totalLessons = sortedRecords.reduce((sum, r) => sum + r.course.lessons.length, 0);
+  const totalCompleted = sortedRecords.reduce((sum, r) => sum + r.completed, 0);
   const overallPercent = totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0;
 
   const online = stripeEnabled();
@@ -84,7 +89,7 @@ export default function PortalPage() {
           </Link>
         </div>
 
-        {records.length === 0 ? (
+        {sortedRecords.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d7c9e8] bg-white p-10 text-center">
             <BookOpen className="mx-auto text-violet-200" size={44} />
             <h2 className="mt-4 text-xl font-bold text-[#211a2d]">No courses yet</h2>
@@ -93,50 +98,57 @@ export default function PortalPage() {
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
-            {activeCourses.slice(0, 4).map(({ course, completed, percent }) => (
-              <article
-                key={course.slug}
-                className="overflow-hidden rounded-2xl border border-[#e8e1ed] bg-white shadow-sm transition-shadow hover:shadow-md"
-              >
-                {course.thumbnail_url ? (
-                  <img src={backendAssetUrl(course.thumbnail_url)} alt="" className="h-36 w-full object-cover" />
-                ) : (
-                  <div className="h-1.5" style={{ background: course.accent || "#421181" }} />
-                )}
-                <div className="p-6">
-                  <p className="eyebrow text-violet-700">{course.category}</p>
-                  <h2 className="mt-1.5 text-lg font-extrabold tracking-tight text-[#211a2d]">{course.title}</h2>
-                  <p className="mt-1 line-clamp-2 text-sm text-[#6e6877]">{course.description}</p>
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs font-bold text-[#6e6877]">
-                      <span>{completed} of {course.lessons.length} modules</span>
-                      <span>{percent}%</span>
+            {sortedRecords.map(({ course, completed, percent, status }) => {
+              const isActive = status === "active";
+
+              if (isActive) {
+                return (
+                  <article
+                    key={course.slug}
+                    className="overflow-hidden rounded-2xl border border-[#e8e1ed] bg-white shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    {course.thumbnail_url ? (
+                      <img src={backendAssetUrl(course.thumbnail_url)} alt="" className="h-36 w-full object-cover" />
+                    ) : (
+                      <div className="h-1.5" style={{ background: course.accent || "#421181" }} />
+                    )}
+                    <div className="p-6">
+                      <p className="eyebrow text-violet-700">{course.category}</p>
+                      <h2 className="mt-1.5 text-lg font-extrabold tracking-tight text-[#211a2d]">{course.title}</h2>
+                      <p className="mt-1 line-clamp-2 text-sm text-[#6e6877]">{course.description}</p>
+                      <div className="mt-4">
+                        <div className="flex justify-between text-xs font-bold text-[#6e6877]">
+                          <span>{completed} of {course.lessons.length} modules</span>
+                          <span>{percent}%</span>
+                        </div>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-violet-100">
+                          <div className="h-full rounded-full bg-[#421181] transition-all" style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                      <Link href={`/training/portal/course/${course.slug}`} className="button-primary mt-5 w-full !justify-center">
+                        {percent ? "Continue course" : "Start course"}
+                        <ArrowRight size={16} />
+                      </Link>
                     </div>
-                    <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-violet-100">
-                      <div className="h-full rounded-full bg-[#421181] transition-all" style={{ width: `${percent}%` }} />
-                    </div>
+                  </article>
+                );
+              }
+
+              return (
+                <article key={course.slug} className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
+                  <div className="h-1.5 bg-amber-400" />
+                  <div className="p-6">
+                    <p className="eyebrow text-amber-700">Awaiting payment</p>
+                    <h2 className="mt-1.5 text-lg font-extrabold tracking-tight text-[#211a2d]">{course.title}</h2>
+                    <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-amber-900">
+                      <Clock3 className="mt-0.5 shrink-0" size={16} />
+                      {online ? `Awaiting payment of $${course.price}.` : `Awaiting payment of $${course.price}. GELife Group will contact you.`}
+                    </p>
+                    {online && <PayButton courseId={Number(course.id)} price={course.price} />}
                   </div>
-                  <Link href={`/training/portal/course/${course.slug}`} className="button-primary mt-5 w-full !justify-center">
-                    {percent ? "Continue course" : "Start course"}
-                    <ArrowRight size={16} />
-                  </Link>
-                </div>
-              </article>
-            ))}
-            {pendingCourses.map(({ course }) => (
-              <article key={course.slug} className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
-                <div className="h-1.5 bg-amber-400" />
-                <div className="p-6">
-                  <p className="eyebrow text-amber-700">Awaiting payment</p>
-                  <h2 className="mt-1.5 text-lg font-extrabold tracking-tight text-[#211a2d]">{course.title}</h2>
-                  <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-amber-900">
-                    <Clock3 className="mt-0.5 shrink-0" size={16} />
-                    {online ? `Awaiting payment of $${course.price}.` : `Awaiting payment of $${course.price}. GELife Group will contact you.`}
-                  </p>
-                  {online && <PayButton courseSlug={String(course.slug)} price={course.price} />}
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

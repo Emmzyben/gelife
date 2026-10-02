@@ -2,7 +2,9 @@ export type EnrollmentRecord = {
   status: string;
   completed: number;
   percent: number;
+  created_at?: string | null;
   course: {
+    id: number;
     slug: string | number;
     title: string;
     description: string;

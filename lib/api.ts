@@ -5,7 +5,10 @@
  * a different origin — no CORS headers needed on the PHP side during dev.
  */
 const PHP_API = (
-  process.env.NEXT_PUBLIC_PHP_API_URL || "http://localhost/gelife/php-backend/api"
+  process.env.NEXT_PUBLIC_PHP_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://cybersquare.com.ng/gelife/php-backend/api"
+    : "http://localhost/gelife/php-backend/api")
 ).replace(/\/+$/, "");
 
 /**

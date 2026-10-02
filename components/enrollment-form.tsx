@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "@/components/link";
 import { CheckCircle2, Copy, KeyRound, Loader2, Mail } from "lucide-react";
-import { authenticatedFetch } from "@/lib/client-auth";
+import { authenticatedFetch, storeAccessToken } from "@/lib/client-auth";
 
 type EnrollmentResult = {
   status: "emailed" | "created" | "pending" | "active";
@@ -16,11 +16,13 @@ type EnrollmentResult = {
 };
 
 export function EnrollmentForm({
+  courseId,
   courseSlug,
   courseTitle,
   signedInLearner,
   onlinePayment,
 }: {
+  courseId: number;
   courseSlug: string;
   courseTitle: string;
   signedInLearner: { fullName: string; email: string } | null;
@@ -54,12 +56,14 @@ export function EnrollmentForm({
     setError("");
     const form = new FormData(event.currentTarget);
     const payload = learner
-      ? { courseSlug, courseTitle }
+      ? { courseId, courseSlug, courseTitle }
       : {
+          courseId,
           courseSlug,
           courseTitle,
           fullName: String(form.get("fullName") ?? ""),
           email: String(form.get("email") ?? ""),
+          password: String(form.get("password") ?? ""),
           organization: String(form.get("organization") ?? ""),
         };
 
@@ -71,6 +75,28 @@ export function EnrollmentForm({
       });
       const data = await response.json() as EnrollmentResult & { error?: string };
       if (!response.ok) throw new Error(data.error || "Enrollment could not be completed.");
+
+      if (!learner && "email" in payload && "password" in payload) {
+        const loginResponse = await fetch("/api/auth/login", {
+          method: "POST",
+          credentials: "omit",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: payload.email, password: payload.password }),
+        });
+        const loginData = await loginResponse.json() as { token?: string; error?: string };
+        if (!loginResponse.ok || !loginData.token) {
+          throw new Error(loginData.error || "Enrollment completed, but automatic sign-in failed. Please sign in to continue.");
+        }
+
+        storeAccessToken(loginData.token);
+        if (data.checkoutUrl) {
+          window.location.assign(data.checkoutUrl);
+        } else {
+          window.location.assign("/training/portal");
+        }
+        return;
+      }
+
       if (data.checkoutUrl) {
         window.location.assign(data.checkoutUrl);
         return;
@@ -115,23 +141,18 @@ export function EnrollmentForm({
     );
   }
 
-  if (result?.email && result.password) {
+  if (result?.email) {
     return (
       <div className="surface p-7 sm:p-9" role="status">
         <CheckCircle2 className="text-emerald-600" size={42} />
         <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-[#241033]">Your learner account is ready.</h2>
-        <p className="mt-3 leading-7 text-slate-600">Save these details now. The password is not shown again. If you lose it, contact info@gelifegroup.org to have it reset.</p>
+        <p className="mt-3 leading-7 text-slate-600">You can now sign in using your email and the password you created.</p>
         <dl className="mt-6 grid gap-3 rounded-2xl bg-violet-50 p-5">
           <div><dt className="text-xs font-bold uppercase tracking-[.14em] text-violet-600">Course</dt><dd className="mt-1 font-bold text-violet-950">{result.courseTitle}</dd></div>
           <div><dt className="text-xs font-bold uppercase tracking-[.14em] text-violet-600">Email</dt><dd className="mt-1 font-mono text-lg font-bold text-violet-950">{result.email}</dd></div>
-          <div><dt className="text-xs font-bold uppercase tracking-[.14em] text-violet-600">Password</dt><dd className="mt-1 font-mono text-lg font-bold text-violet-950">{result.password}</dd></div>
         </dl>
         <p className="mt-4 text-sm leading-6 text-slate-600">{paymentLine}</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={async () => {
-            await navigator.clipboard.writeText(`GELife Email: ${result.email}\nPassword: ${result.password}`);
-            setCopied(true);
-          }} className="button-secondary"><Copy size={18} /> {copied ? "Copied" : "Copy login details"}</button>
           <Link href="/training/login" className="button-primary"><KeyRound size={18} /> {onlinePayment ? "Sign in to pay" : "Go to learner login"}</Link>
         </div>
       </div>
@@ -150,6 +171,7 @@ export function EnrollmentForm({
           <>
             <label className="field">Full name<input name="fullName" autoComplete="name" required minLength={3} /></label>
             <label className="field">Email address<input type="email" name="email" autoComplete="email" required /></label>
+            <label className="field">Password<input type="password" name="password" autoComplete="new-password" required minLength={8} /></label>
             <label className="field">Organization <span className="font-normal text-slate-500">(optional)</span><input name="organization" autoComplete="organization" /></label>
           </>
         )}

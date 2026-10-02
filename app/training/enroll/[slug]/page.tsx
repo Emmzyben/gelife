@@ -39,7 +39,7 @@ export default async function EnrollPage({ params }: { params: Promise<{ slug: s
                 <h2 className="mt-8 text-xl font-extrabold text-[#241033]">Course outline</h2>
                 <ol className="mt-4 space-y-3">{course.modules.map((module, index) => <li key={module.id} className="flex gap-3 rounded-xl bg-white p-4 shadow-sm"><span className="font-black text-violet-300">{String(index + 1).padStart(2, "0")}</span><strong className="block text-[#241033]">{module.title}</strong></li>)}</ol>
               </div>
-              <EnrollmentForm courseSlug={course.slug} courseTitle={course.title} signedInLearner={null} onlinePayment={stripeEnabled()} />
+              <EnrollmentForm courseId={course.id} courseSlug={course.slug} courseTitle={course.title} signedInLearner={null} onlinePayment={stripeEnabled()} />
             </div>
           </div>
         </section>

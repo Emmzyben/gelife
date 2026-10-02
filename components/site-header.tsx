@@ -1,20 +1,38 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "@/components/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { navigation } from "@/components/navigation";
+import { authenticatedFetch } from "@/lib/client-auth";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
+  const [session, setSession] = useState<{ loggedIn: boolean; role: string } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    authenticatedFetch("/api/auth/me", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active && data.user) {
+          setSession({ loggedIn: true, role: data.user.role });
+        }
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   // <details> stays open across client-side navigation, so close it whenever the route changes.
   useEffect(() => {
     if (menu.current) menu.current.open = false;
   }, [pathname]);
+
+  const dashboardHref = session?.role === "admin" ? "/admin" : "/training/portal";
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#421181]/10 bg-white/95 backdrop-blur-lg">
@@ -26,7 +44,11 @@ export function SiteHeader() {
           {navigation.map(([label, href]) => (
             <Link key={href} href={href} className="transition hover:text-[#421181]">{label}</Link>
           ))}
-          <Link href="/training/login" className="font-bold text-[#421181] hover:text-[#f47c35]">Learner login</Link>
+          {session?.loggedIn ? (
+            <Link href={dashboardHref} className="font-bold text-[#421181] hover:text-[#f47c35]">Dashboard</Link>
+          ) : (
+            <Link href="/training/login" className="font-bold text-[#421181] hover:text-[#f47c35]">Learner login</Link>
+          )}
           <Link href="/contact" className="button-primary !min-h-11 !px-4 !py-2.5">Request a consultation</Link>
         </nav>
         <details ref={menu} className="group relative lg:hidden">
@@ -38,7 +60,11 @@ export function SiteHeader() {
               <Link key={href} href={href} className="block rounded-xl px-4 py-3 font-semibold text-[#514a5b] hover:bg-[#f7f1fd]">{label}</Link>
             ))}
             <div className="my-2 h-px bg-[#e8e1ed]" />
-            <Link href="/training/login" className="block rounded-xl px-4 py-3 font-bold text-[#421181] hover:bg-[#f7f1fd]">Learner login</Link>
+            {session?.loggedIn ? (
+              <Link href={dashboardHref} className="block rounded-xl px-4 py-3 font-bold text-[#421181] hover:bg-[#f7f1fd]">Dashboard</Link>
+            ) : (
+              <Link href="/training/login" className="block rounded-xl px-4 py-3 font-bold text-[#421181] hover:bg-[#f7f1fd]">Learner login</Link>
+            )}
             <Link href="/contact" className="button-primary mt-2 w-full">Request a consultation</Link>
           </nav>
         </details>

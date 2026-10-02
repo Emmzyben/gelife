@@ -92,7 +92,7 @@ export default function MyCoursesPage() {
                       <Clock3 className="mt-0.5 shrink-0" size={14} />
                       {online ? `Awaiting payment of $${course.price}.` : `Awaiting payment of $${course.price}. GELife Group will contact you.`}
                     </p>
-                    {online && <PayButton courseSlug={String(course.slug)} price={course.price} />}
+                    {online && <PayButton courseId={Number(course.id)} price={course.price} />}
                   </>
                 )}
               </div>
