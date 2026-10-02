@@ -72,7 +72,7 @@ export default function Home() {
         <section className="section outcome-section">
           <div className="site-shell outcome-grid">
             <div className="outcome-image">
-              <Image src="/images/energy-model.png" alt="Technical subsurface model used in energy-sector analysis" width={415} height={279} />
+              <Image src="/images/pic3.jpeg" alt="Technical subsurface model used in energy-sector analysis" width={415} height={279} />
               <span className="image-label">Technical insight for better decisions</span>
             </div>
             <div>

@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { phpApi } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Payment confirmation" };
+export const metadata: Metadata = { title: "Payment confirmation", robots: { index: false, follow: false } };
 
 type SessionData = {
   status: "paid" | "unpaid" | "no_payment_required";
