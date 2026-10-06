@@ -20,6 +20,16 @@ export async function phpApi(
   options: RequestInit = {}
 ): Promise<Response> {
   const { headers, ...rest } = options;
+  const [requestPath, query = ""] = path.split("?", 2);
+  const queryParams = new URLSearchParams(query);
+  const phpEndpoint = new URL(`${PHP_API}/index.php`);
+
+  if (/\/?index\.php$/.test(requestPath)) {
+    queryParams.forEach((value, key) => phpEndpoint.searchParams.append(key, value));
+  } else {
+    phpEndpoint.searchParams.set("_route", requestPath.replace(/^\/+/, ""));
+    queryParams.forEach((value, key) => phpEndpoint.searchParams.append(key, value));
+  }
   
   const customHeaders: Record<string, string> = {
     Accept: "application/json",
@@ -30,7 +40,7 @@ export async function phpApi(
     customHeaders["Content-Type"] = "application/json";
   }
 
-  return fetch(`${PHP_API}${path}`, {
+  return fetch(phpEndpoint, {
     cache: "no-store",
     headers: customHeaders,
     ...rest,

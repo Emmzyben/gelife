@@ -10,10 +10,10 @@ const phpApiUrl = (
 const nextConfig: NextConfig = {
   async rewrites() {
     return {
-      afterFiles: [
+      fallback: [
         {
           source: "/api/:path*",
-          destination: `${phpApiUrl}/:path*`,
+          destination: `${phpApiUrl}/index.php?_route=:path*`,
         },
       ],
     };
