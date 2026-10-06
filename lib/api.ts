@@ -5,15 +5,14 @@
  */
 const PHP_API = (
   process.env.NEXT_PUBLIC_PHP_API_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "https://api.upcionsunlimited.org/php-backend/api"
-    : "http://localhost/gelife/php-backend/api")
+  "https://api.upcionsunlimited.org/php-backend/api"
 ).replace(/\/+$/, "");
 
-/**
+/*
  * Calls the PHP API. Path should start with "/", e.g. "/auth/login".
  * Authenticated callers pass an Authorization: Bearer header explicitly.
  */
+
 export async function phpApi(
   path: string,
   options: RequestInit = {}
