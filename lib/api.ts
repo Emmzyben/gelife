@@ -1,13 +1,12 @@
 /**
  * Base URL of the PHP REST API backend (XAMPP/Apache).
- * Set NEXT_PUBLIC_PHP_API_URL in .env.local to override.
- * Next.js rewrites proxies /api/* in development so the browser never hits
- * a different origin — no CORS headers needed on the PHP side during dev.
+ * Set NEXT_PUBLIC_PHP_API_URL in the deployment environment to override.
+ * Requests are sent server-side through Next.js route handlers.
  */
 const PHP_API = (
   process.env.NEXT_PUBLIC_PHP_API_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://cybersquare.com.ng/gelife/php-backend/api"
+    ? "https://api.upcionsunlimited.org/php-backend/api"
     : "http://localhost/gelife/php-backend/api")
 ).replace(/\/+$/, "");
 
