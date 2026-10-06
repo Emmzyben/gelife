@@ -9,12 +9,14 @@ const phpApiUrl = (
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${phpApiUrl}/:path*`,
-      },
-    ];
+    return {
+      afterFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${phpApiUrl}/:path*`,
+        },
+      ],
+    };
   },
 };
 
